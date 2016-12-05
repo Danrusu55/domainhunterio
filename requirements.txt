@@ -1,0 +1,9 @@
+beautifulsoup4==4.5.1
+get==0.0.0
+post==0.0.0
+public==0.0.0
+query-string==0.0.0
+request==0.0.0
+requests==2.12.1
+setupfiles==0.0.0
+SQLAlchemy==1.1.4
