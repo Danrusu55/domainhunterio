@@ -6,20 +6,29 @@ class startThread (threading.Thread):
         threading.Thread.__init__(self)
         self.rowStart = rowStart
         self.rowEnd = rowEnd
+        self.sql = "UPDATE main SET `status`='{0}', `backordered`='{1}', `expirationdate`='{2}', `estibotvalue`='{3}' where `domain`='{4}'"
     def run(self):
         try:
-            some_session = Session()
-            # print('Working on row #: ',self.rowStart)
-            for domainRow in some_session.query(Domains).filter((Domains.expirationdate == None) & (Domains.number > self.rowStart) & (Domains.number < self.rowEnd)):
-                domainInfo = DomainInfo(domainRow.domain)
-                domainRow.status = domainInfo.status
-                domainRow.backordered = domainInfo.backordered
-                domainRow.expirationdate = domainInfo.expirationdate
-                domainRow.estibotvalue = domainInfo.estibotvalue
-                print(domainInfo.status, domainInfo.backordered, domainInfo.expirationdate, domainInfo.estibotvalue)
-            some_session.commit()
+            conn = MySQLdb.connect(host=host,user=mySqlUser,passwd=mySqlPass,db=dbName)
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM main where `status` is NULL AND `number` > {0} and `number` < {1};".format(self.rowStart,self.rowEnd))
+            domainRows = cur.fetchall()
+            for domainRow in domainRows:
+                domainInfo = DomainInfo(domainRow[1])
+                print(domainRow[1],domainInfo.status, domainInfo.backordered, domainInfo.expirationdate, domainInfo.estibotvalue)
+
+                if domainInfo.expirationdate:
+                    cur.execute(self.sql.format(domainInfo.status, domainInfo.backordered, domainInfo.expirationdate, domainInfo.estibotvalue, domainInfo.domain))
+
+                    conn.commit()
+                else:
+                    cur.execute("UPDATE main SET `status`='{0}' where `domain`='{1}'".format(domainInfo.status,domainInfo.domain))
+
+                    conn.commit()
+
+            # some_session.commit()
         except KeyboardInterrupt:
-            Session.commit()
+            #Session.commit()
             print('Manual stop')
             sys.exit()
 
@@ -28,7 +37,7 @@ class DomainInfo():
         self.domain = domain
         self.estibotvalue = ''
         self.status = ''
-        self.expirationdate = '2000/01/01'
+        self.expirationdate = ''
         self.backordered = ''
         if self.checkNic():
             self.checkEstibot()
@@ -38,7 +47,7 @@ class DomainInfo():
 
     def checkNic(self):
         counter = 0
-        max_attempts = 8
+        max_attempts = 15
         while counter < max_attempts:
             try:
                 url = 'https://www.nic.io/cgi-bin/whois?DOMAIN=' + self.domain + '.io'
@@ -73,7 +82,7 @@ class DomainInfo():
 
     def checkEstibot(self):
         counter = 0
-        max_attempts = 8
+        max_attempts = 15
         while counter < max_attempts:
             try:
                 url = 'http://www.estibot.com/appraise.php?a=appraise&data=' + self.domain + '.io'
@@ -113,11 +122,15 @@ def getArg(argv):
     return option
 
 if __name__ == "__main__":
+    # global
+
+    ToCommitDictionary = {}
+
     try:
         option = getArg(sys.argv[1:])
         if option == "first":
             numRows = len(some_session.query(Domains).all())
-            threadsToUse = 50
+            threadsToUse = 95
             rowsPer = numRows / threadsToUse
             threads = []
 
@@ -126,26 +139,27 @@ if __name__ == "__main__":
                 thread.daemon = True
                 thread.start()
                 threads.append(thread)
-
             while True:
                 time.sleep(1)
             # for t in threads:
                 # t.join()
-
             '''
-            for domainRow in session.query(Domains).filter(Domains.expirationdate == None):
-                print('Working on: ', domainRow.domain)
-                domainInfo = DomainInfo(domainRow.domain)
-                # currentDomainSession = session.query(Domains).filter_by(domain=domainRow.domain).first()
-                # session.execute(update(main, values={main.domainRow.status: domainInfo.status}))
-                domainRow.status = domainInfo.status
-                domainRow.backordered = domainInfo.backordered
-                domainRow.expirationdate = domainInfo.expirationdate
-                domainRow.estibotvalue = domainInfo.estibotvalue
-                print(domainInfo.status, domainInfo.backordered, domainInfo.expirationdate, domainInfo.estibotvalue)
-            session.commit()
+            # to run just one
+            conn = MySQLdb.connect(host=host,user=mySqlUser,passwd=mySqlPass,db=dbName)
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM main where `status` is NULL")
+            domainRows = cur.fetchall()
+            sql = "UPDATE main SET `status`='{0}', `backordered`='{1}', `expirationdate`='{2}', `estibotvalue`='{3}' where `domain`='{4}'"
+            for domainRow in domainRows:
+                domainInfo = DomainInfo(domainRow[1])
+                if domainInfo.status:
+                    print(domainInfo.status, domainInfo.backordered, domainInfo.expirationdate, domainInfo.estibotvalue)
+
+                    cur.execute(sql.format(domainInfo.status, domainInfo.backordered, domainInfo.expirationdate, domainInfo.estibotvalue, domainInfo.domain))
+
+                    conn.commit()
             '''
     except KeyboardInterrupt:
         # session.commit()
-        print('Manual stop')
+        print('Manual stop main')
         sys.exit()
