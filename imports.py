@@ -17,3 +17,5 @@ import time
 
 proxyUser = os.environ['PROXY_USER']
 proxyPass = os.environ['PROXY_PASS']
+proxyIP = '144.217.121.113'
+proxyPort = '222'

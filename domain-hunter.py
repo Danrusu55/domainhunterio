@@ -16,21 +16,20 @@ class startThread (threading.Thread):
             for domainRow in domainRows:
                 domainInfo = DomainInfo(domainRow[1])
                 print(domainRow[1],domainInfo.status, domainInfo.backordered, domainInfo.expirationdate, domainInfo.estibotvalue)
-
                 if domainInfo.expirationdate:
                     cur.execute(self.sql.format(domainInfo.status, domainInfo.backordered, domainInfo.expirationdate, domainInfo.estibotvalue, domainInfo.domain))
-
-                    conn.commit()
                 else:
                     cur.execute("UPDATE main SET `status`='{0}' where `domain`='{1}'".format(domainInfo.status,domainInfo.domain))
-
-                    conn.commit()
+                conn.commit()
 
             # some_session.commit()
         except KeyboardInterrupt:
             #Session.commit()
             print('Manual stop')
             sys.exit()
+        finally:
+            if conn:
+                conn.close()
 
 class DomainInfo():
     def __init__(self,domain):
@@ -53,8 +52,8 @@ class DomainInfo():
                 url = 'https://www.nic.io/cgi-bin/whois?DOMAIN=' + self.domain + '.io'
                 # url = 'https://www.nic.io/cgi-bin/whois?DOMAIN=' + 'jesus' + '.io'
                 proxies = {
-                    'http': 'http://{0}:{1}@62.212.82.72:6185'.format(proxyUser,proxyPass),
-                    'https': 'http://{0}:{1}@62.212.82.72:6185'.format(proxyUser,proxyPass),
+                    'http': 'http://{0}:{1}@{2}:{3}'.format(proxyUser,proxyPass,proxyIP,proxyPort),
+                    'https': 'https://{0}:{1}@{2}:{3}'.format(proxyUser,proxyPass,proxyIP,proxyPort),
                 }
                 content = requests.get(url,proxies=proxies,headers={'User-Agent': 'Mozilla/5.0'}).content
                 soup = BeautifulSoup(content,"html.parser")
@@ -88,8 +87,8 @@ class DomainInfo():
                 url = 'http://www.estibot.com/appraise.php?a=appraise&data=' + self.domain + '.io'
                 # url = 'http://www.estibot.com/appraise.php?a=appraise&data=' + 'jesus' + '.io'
                 proxies = {
-                    'http': 'http://{0}:{1}@62.212.82.72:6185'.format(proxyUser,proxyPass),
-                    'https': 'http://{0}:{1}@62.212.82.72:6185'.format(proxyUser,proxyPass),
+                    'http': 'http://{0}:{1}@{2}:{3}'.format(proxyUser,proxyPass,proxyIP,proxyPort),
+                    'https': 'https://{0}:{1}@{2}:{3}'.format(proxyUser,proxyPass,proxyIP,proxyPort),
                 }
                 content = requests.get(url,proxies=proxies,headers={'User-Agent': 'Mozilla/5.0'}).content
                 soup = BeautifulSoup(content,"html.parser")
@@ -130,7 +129,7 @@ if __name__ == "__main__":
         option = getArg(sys.argv[1:])
         if option == "first":
             numRows = len(some_session.query(Domains).all())
-            threadsToUse = 95
+            threadsToUse = 15
             rowsPer = numRows / threadsToUse
             threads = []
 
@@ -143,7 +142,7 @@ if __name__ == "__main__":
                 time.sleep(1)
             # for t in threads:
                 # t.join()
-            '''
+                '''
             # to run just one
             conn = MySQLdb.connect(host=host,user=mySqlUser,passwd=mySqlPass,db=dbName)
             cur = conn.cursor()
@@ -153,13 +152,20 @@ if __name__ == "__main__":
             for domainRow in domainRows:
                 domainInfo = DomainInfo(domainRow[1])
                 if domainInfo.status:
-                    print(domainInfo.status, domainInfo.backordered, domainInfo.expirationdate, domainInfo.estibotvalue)
-
-                    cur.execute(sql.format(domainInfo.status, domainInfo.backordered, domainInfo.expirationdate, domainInfo.estibotvalue, domainInfo.domain))
-
+                    print(domainInfo.domain,domainInfo.status, domainInfo.backordered, domainInfo.expirationdate, domainInfo.estibotvalue)
+                    if domainInfo.expirationdate:
+                        cur.execute(sql.format(domainInfo.status, domainInfo.backordered, domainInfo.expirationdate, domainInfo.estibotvalue, domainInfo.domain))
+                    else:
+                        cur.execute("UPDATE main SET `status`='{0}' where `domain`='{1}'".format(domainInfo.status,domainInfo.domain))
                     conn.commit()
-            '''
+                '''
     except KeyboardInterrupt:
         # session.commit()
         print('Manual stop main')
         sys.exit()
+    except Exception as err:
+        print('error: ', err)
+        sys.exit()
+    finally:
+        if conn:
+            conn.close()
